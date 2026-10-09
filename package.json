@@ -1,0 +1,33 @@
+{
+  "name": "hardware-water-business-suite",
+  "private": true,
+  "version": "2.8.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "deploy": "vite build && firebase deploy",
+    "preview": "vite preview",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:hosting": "vite build && firebase deploy --only hosting",
+    "seed": "node scripts/seed.js",
+    "seed:clear": "node scripts/seed.js clear",
+    "make-admin": "node scripts/make-admin.js",
+    "verify-all": "node scripts/verify-all.js"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "firebase": "^10.14.1",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "firebase-admin": "^12.6.0",
+    "vite": "^5.4.8"
+  }
+}

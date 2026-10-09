@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isActive() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['user', 'admin'];
+    }
+    function isAdmin() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'user' &&
+        request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'role', 'photoURL', 'verified', 'createdAt']) &&
+        request.resource.data.get('verified', true) == true;
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'photoURL', 'readAlerts', 'verified']) &&
+        request.resource.data.get('verified', true) == true);
+      allow delete: if isAdmin();
+    }
+    match /products/{id} {
+      allow read: if isActive();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isActive() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['qty']));
+    }
+    match /sales/{id} {
+      allow read: if isActive() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isActive() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    match /branches/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+    function userBranch() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.branchId;
+    }
+    match /waterItems/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+    match /waterSales/{id} {
+      allow read: if isAdmin() || (isActive() && resource.data.branchId == userBranch());
+      allow create: if isAdmin() || (isActive() && request.resource.data.userId == request.auth.uid &&
+        request.resource.data.branchId == userBranch() &&
+        !exists(/databases/$(database)/documents/waterLogs/$(request.resource.data.branchId + '_' + request.resource.data.date)));
+      allow update, delete: if isAdmin();
+    }
+    match /waterLogs/{id} {
+      allow read: if isAdmin() || (isActive() && resource.data.branchId == userBranch());
+      allow create: if isAdmin() || (isActive() && request.resource.data.userId == request.auth.uid &&
+        request.resource.data.branchId == userBranch() &&
+        id == request.resource.data.branchId + '_' + request.resource.data.date);
+      allow update, delete: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+    match /counters/{id} {
+      allow read: if isActive();
+      allow create: if isActive() && request.resource.data.keys().hasOnly(['hw', 'wt']) &&
+        request.resource.data.hw <= 1 && request.resource.data.wt <= 1;
+      allow update: if isActive() && request.resource.data.keys().hasOnly(['hw', 'wt']) &&
+        request.resource.data.hw >= resource.data.hw && request.resource.data.hw <= resource.data.hw + 1 &&
+        request.resource.data.wt >= resource.data.wt && request.resource.data.wt <= resource.data.wt + 1;
+    }
+    match /counters/invoices {
+      allow read: if isActive();
+      allow create: if isActive() && request.resource.data.keys().hasOnly(['n']) && request.resource.data.n <= 1;
+      allow update: if isActive() && request.resource.data.keys().hasOnly(['n']) &&
+        request.resource.data.n >= resource.data.n && request.resource.data.n <= resource.data.n + 1;
+    }
+    match /invoices/{id} {
+      allow read: if isAdmin() || (isActive() && resource.data.branchId == userBranch());
+      allow create: if isAdmin() || (isActive() && request.resource.data.userId == request.auth.uid && request.resource.data.branchId == userBranch());
+      allow update: if isAdmin() || (isActive() && resource.data.branchId == userBranch() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['payments', 'paid', 'status']));
+      allow delete: if isAdmin();
+    }
+    match /ledger/{id} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
